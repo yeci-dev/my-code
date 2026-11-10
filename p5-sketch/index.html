@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>p5 · playground</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #08080c; overflow: hidden; }
+  canvas { display: block; }
+</style>
+<script src="./p5.min.js"></script>
+</head>
+<body>
+<script>
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  background(8, 8, 12);
+  noStroke();
+}
+
+function draw() {
+  fill(255, 40, 90, 55);
+  circle(mouseX, mouseY, 26);
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  background(8, 8, 12);
+}
+</script>
+</body>
+</html>
