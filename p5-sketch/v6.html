@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>p5 · 雨夜车窗（实景）</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #04060a; overflow: hidden; cursor: crosshair; }
+  canvas { display: block; }
+</style>
+<script src="./p5.min.js"></script>
+<script src="./car-night.js"></script>
+</head>
+<body>
+<script>
+// 背景换成真实照片：车窗外的夜路。
+// 水珠还是老办法 —— 离屏画一颗，再缩放着贴上去。
+
+let drops = [];
+let photo;           // 背景照片
+let sprite;          // 水珠贴图
+
+function preload() {
+  photo = loadImage(window.PHOTO_SRC);
+}
+
+function newDrop() {
+  const sliding = random() < 0.4;
+  return {
+    x: random(width),
+    y: random(height),
+    r: sliding ? random(5, 12) : random(2, 5.5),
+    vy: sliding ? random(0.3, 1.1) : 0,
+    sliding: sliding,
+    wob: random(TWO_PI),
+    wobSpeed: random(0.01, 0.04)
+  };
+}
+
+function makeSprite() {
+  const S = 96;
+  sprite = createGraphics(S, S);
+  sprite.clear();
+  const c = sprite.drawingContext;
+
+  const g = c.createRadialGradient(S * 0.5, S * 0.55, 0, S * 0.5, S * 0.5, S * 0.5);
+  g.addColorStop(0,    'rgba(210, 230, 255, 0.05)');
+  g.addColorStop(0.55, 'rgba(200, 220, 250, 0.09)');
+  g.addColorStop(0.88, 'rgba(235, 245, 255, 0.30)');
+  g.addColorStop(1,    'rgba(235, 245, 255, 0.02)');
+  c.fillStyle = g;
+  c.beginPath();
+  c.arc(S * 0.5, S * 0.5, S * 0.5 - 2, 0, Math.PI * 2);
+  c.fill();
+
+  c.fillStyle = 'rgba(255, 255, 255, 0.65)';
+  c.beginPath();
+  c.arc(S * 0.38, S * 0.36, S * 0.07, 0, Math.PI * 2);
+  c.fill();
+}
+
+function makeDrops() {
+  drops = [];
+  for (let i = 0; i < 130; i++) drops.push(newDrop());
+}
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  colorMode(HSB, 360, 100, 100, 100);
+  makeSprite();
+  makeDrops();
+}
+
+// 把照片按"填满"方式铺满画布
+function drawPhoto() {
+  const s = max(width / photo.width, height / photo.height);
+  const w = photo.width * s;
+  const h = photo.height * s;
+  image(photo, (width - w) / 2, (height - h) / 2, w, h);
+}
+
+function draw() {
+  drawPhoto();
+
+  // 一层很淡的夜色，让照片和水珠融在一起
+  noStroke();
+  fill(222, 45, 30, 10);
+  rect(0, 0, width, height);
+
+  const ctx = drawingContext;
+
+  for (let d of drops) {
+    if (dist(mouseX, mouseY, d.x, d.y) < 55) {
+      d.r *= 0.93;
+      d.sliding = true;
+      d.vy = max(d.vy, 1.4);
+    }
+
+    if (d.sliding) {
+      d.wob += d.wobSpeed;
+      d.x += sin(d.wob) * 0.35;
+      d.y += d.vy;
+      d.vy = min(d.vy + 0.012, 3);
+
+      const top = d.y - d.r * 10;
+      const tg = ctx.createLinearGradient(0, top, 0, d.y);
+      tg.addColorStop(0, 'rgba(220, 235, 255, 0)');
+      tg.addColorStop(1, 'rgba(220, 235, 255, 0.12)');
+      ctx.strokeStyle = tg;
+      ctx.lineWidth = max(d.r * 0.85, 1.2);
+      ctx.beginPath();
+      ctx.moveTo(d.x, top);
+      ctx.lineTo(d.x, d.y);
+      ctx.stroke();
+    }
+
+    image(sprite, d.x - d.r, d.y - d.r, d.r * 2, d.r * 2);
+  }
+
+  for (let i = 0; i < drops.length; i++) {
+    const d = drops[i];
+    if (d.y - d.r > height || d.r < 0.6) {
+      drops[i] = newDrop();
+      drops[i].y = -random(10, 60);
+    }
+  }
+}
+
+function keyPressed() {
+  if (key === 'r' || key === 'R') makeDrops();
+  if (key === 's' || key === 'S') saveCanvas('rain-window', 'png');
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+</script>
+</body>
+</html>

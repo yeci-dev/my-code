@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>p5 · v3 雨</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06080c; overflow: hidden; cursor: crosshair; }
+  canvas { display: block; }
+</style>
+<script src="./p5.min.js"></script>
+</head>
+<body>
+<script>
+// 新东西只有两个：
+// 1. 用「数组」装几百个雨滴，每个雨滴是一个对象（有 x, y, 速度…）
+// 2. 每帧不彻底擦掉画面，而是盖一层很淡的黑色 → 留下拖影
+
+let drops = [];
+
+// 造一滴雨
+function newDrop() {
+  return {
+    x: random(width),
+    y: random(-height, height),   // 一开始散布在屏幕内外
+    len: random(12, 45),          // ← 雨丝长度
+    speed: random(5, 14),         // ← 下落速度
+    w: random(0.8, 2.2),          // 粗细
+    alpha: random(10, 55)         // 明暗
+  };
+}
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  colorMode(HSB, 360, 100, 100, 100);
+  for (let i = 0; i < 420; i++) {   // ← 雨量
+    drops.push(newDrop());
+  }
+}
+
+function draw() {
+  // 关键：不是 background() 全擦，而是盖一层 18% 的深色 → 拖影
+  background(230, 30, 5, 18);
+
+  // 鼠标那盏模糊的路灯：用径向渐变，边缘才是软的
+  const ctx = drawingContext;
+  const g = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, 240);
+  g.addColorStop(0,   'rgba(255, 226, 170, 0.07)');
+  g.addColorStop(0.45,'rgba(255, 210, 150, 0.03)');
+  g.addColorStop(1,   'rgba(255, 200, 130, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(mouseX, mouseY, 240, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 画所有雨滴
+  for (let d of drops) {
+    stroke(205, 12, 95, d.alpha);
+    strokeWeight(d.w);
+    // 雨丝：从当前位置，向右下画一小段
+    line(d.x, d.y, d.x + d.len * 0.18, d.y + d.len);
+
+    // 往前走
+    d.y += d.speed;
+    d.x += d.speed * 0.18;
+
+    // 掉出屏幕就回到顶部
+    if (d.y > height + 60) {
+      d.y = random(-120, -10);
+      d.x = random(width);
+    }
+  }
+}
+
+function keyPressed() {
+  if (key === 'r' || key === 'R') background(6, 6, 10);
+  if (key === 's' || key === 'S') saveCanvas('rain', 'png');
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+</script>
+</body>
+</html>
