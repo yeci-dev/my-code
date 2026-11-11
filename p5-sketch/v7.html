@@ -19,10 +19,12 @@
 let drops = [];
 let splashes = [];
 let lights = [];
+let showLights = false;   // 默认关灯，按 L 切换
 
 let wind = 0;
 let flash = 0;
 let nextFlash = 120;
+let flashX = 0, flashY = 0;   // 闪电从哪个点亮起
 
 function newDrop() {
   const land = random(height * 0.10, height * 0.78);
@@ -44,7 +46,7 @@ function newSplash(x, y, near) {
   const scale = 0.6 + near * 0.9;
   for (let i = 0; i < 5; i++) {
     parts.push({
-      x: x + random(-5, 5),
+      x: x + random(-3, 3),
       y: y,
       vx: (random(-2.4, 2.4) + wind * 2.2) * scale,
       vy: random(-5, -1.4) * scale,
@@ -57,13 +59,13 @@ function newSplash(x, y, near) {
 // 远处的街灯：一排模糊的光斑
 function makeLights() {
   lights = [];
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 12; i++) {
     lights.push({
       x: random(width),
-      y: height * 0.52 + random(-0.09, 0.09) * height,  // 排成一条街
-      r: random(28, 95),
-      warm: random() < 0.72,                            // 暖黄多，冷白少
-      a: random(5, 11)
+      y: height * 0.50 + random(-0.06, 0.06) * height,  // 一条街
+      r: random(30, 80),
+      warm: random() < 0.7,
+      a: random(3, 6)                                   // 更暗
     });
   }
 }
@@ -82,18 +84,24 @@ function draw() {
 
   background(230, 30, 5, 18);
 
-  // ── 灯光
+  // ── 灯光（默认不显示）
   const ctx = drawingContext;
-  for (let L of lights) {
-    const g = ctx.createRadialGradient(L.x, L.y, 0, L.x, L.y, L.r);
+  if (showLights) for (let L of lights) {
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, L.r);
     const c = L.warm ? '255, 200, 120' : '150, 200, 255';
-    g.addColorStop(0,   'rgba(' + c + ', ' + (L.a / 100) + ')');
-    g.addColorStop(0.4, 'rgba(' + c + ', ' + (L.a / 300) + ')');
-    g.addColorStop(1,   'rgba(' + c + ', 0)');
+    g.addColorStop(0,    'rgba(' + c + ', ' + (L.a / 100) + ')');
+    g.addColorStop(0.45, 'rgba(' + c + ', ' + (L.a / 380) + ')');
+    g.addColorStop(1,    'rgba(' + c + ', 0)');
+
+    // 拉成竖椭圆：像湿路面上的光，而不是一个圆片
+    ctx.save();
+    ctx.translate(L.x, L.y);
+    ctx.scale(1, 1.7);
     ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(L.x, L.y, L.r, 0, Math.PI * 2);
+    ctx.arc(0, 0, L.r, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
   }
 
   // ── 鼠标那盏近处的路灯
@@ -129,6 +137,7 @@ function draw() {
   for (let s of splashes) {
     s.life -= 0.05;
 
+    // 涟漪
     s.ring += 4 * s.scale;
     stroke(210, 8, 100, 26 * s.life);
     strokeWeight(0.7);
@@ -140,6 +149,7 @@ function draw() {
       p.x += p.vx;
       p.y += p.vy;
 
+      // 掉回它自己那一层就弹一下
       if (p.y > s.y) {
         p.y = s.y;
         p.vy *= -0.35;
@@ -153,15 +163,37 @@ function draw() {
   }
   splashes = splashes.filter(s => s.life > 0);
 
+  // ── 雾：上方一层很淡的灰蓝
+  const fog = ctx.createLinearGradient(0, 0, 0, height * 0.7);
+  fog.addColorStop(0, 'rgba(170, 195, 220, 0.012)');
+  fog.addColorStop(1, 'rgba(170, 195, 220, 0)');
+  ctx.fillStyle = fog;
+  ctx.fillRect(0, 0, width, height * 0.7);
+
+  // ── 暗角：四角压暗，把视线收拢到中间
+  const vg = ctx.createRadialGradient(
+    width / 2, height / 2, Math.min(width, height) * 0.22,
+    width / 2, height / 2, Math.max(width, height) * 0.72
+  );
+  vg.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vg.addColorStop(1, 'rgba(0, 0, 0, 0.075)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, width, height);
+
   // ── 雷
   if (frameCount > nextFlash) {
     flash = 1;
+    flashX = random(width);
+    flashY = random(height * 0.05, height * 0.45);
     nextFlash = frameCount + int(random(420, 900));
   }
   if (flash > 0.01) {
-    noStroke();
-    fill(210, 12, 100, flash * 35);
-    rect(0, 0, width, height);
+    const fg = ctx.createRadialGradient(flashX, flashY, 0, flashX, flashY, max(width, height) * 1.15);
+    fg.addColorStop(0,    'rgba(225, 238, 255, ' + (flash * 0.55) + ')');
+    fg.addColorStop(0.3,  'rgba(200, 222, 255, ' + (flash * 0.16) + ')');
+    fg.addColorStop(1,    'rgba(200, 222, 255, 0)');
+    ctx.fillStyle = fg;
+    ctx.fillRect(0, 0, width, height);
     flash *= 0.80;
   }
 }
@@ -169,7 +201,8 @@ function draw() {
 function keyPressed() {
   if (key === 'r' || key === 'R') { background(6, 6, 10); makeLights(); }
   if (key === 's' || key === 'S') saveCanvas('thunder-wind-lights', 'png');
-  if (key === 'f' || key === 'F') flash = 1;
+  if (key === 'f' || key === 'F') { flash = 1; flashX = random(width); flashY = random(height * 0.05, height * 0.45); }
+  if (key === 'l' || key === 'L') showLights = !showLights;   // 开关灯光
 }
 
 function windowResized() {
